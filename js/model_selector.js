@@ -45,6 +45,21 @@ app.registerExtension({
                     };
                 }
             };
+            
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = async function() {
+                if (onConfigure) onConfigure.apply(this, arguments);
+                
+                const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                const modelNameWidget = this.widgets.find(w => w.name === "model_name");
+                
+                if (modelTypeWidget && modelNameWidget) {
+                    const savedModelName = modelNameWidget.value;
+                    const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
+                    modelNameWidget.options.values = models;
+                    modelNameWidget.value = savedModelName;
+                }
+            };
         }
     }
 });

@@ -7,7 +7,6 @@ class ModelNameSelector:
     def INPUT_TYPES(s):
         models = folder_paths.get_filename_list("checkpoints")
         models += folder_paths.get_filename_list("diffusion_models")
-        models += folder_paths.get_filename_list("unet")
         
         return {
             "required": {
@@ -16,8 +15,8 @@ class ModelNameSelector:
             }
         }
     
-    RETURN_TYPES = ("STRING", "*")
-    RETURN_NAMES = ("model_name_string", "model_name_combo")
+    RETURN_TYPES = ("*",)
+    RETURN_NAMES = ("model_name",)
     FUNCTION = "get_name"
     CATEGORY = "loaders"
     OUTPUT_NODE = True
@@ -25,11 +24,10 @@ class ModelNameSelector:
     def get_name(self, model_name, control_after_generate):
         models = folder_paths.get_filename_list("checkpoints")
         models += folder_paths.get_filename_list("diffusion_models")
-        models += folder_paths.get_filename_list("unet")
         models = sorted(models)
         
         if not models:
-            return {"ui": {"model_name": [model_name]}, "result": (model_name, model_name)}
+            return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
         
         selected = model_name
         
@@ -43,7 +41,7 @@ class ModelNameSelector:
             elif control_after_generate == "randomize":
                 selected = random.choice(models)
         
-        return {"ui": {"model_name": [selected]}, "result": (selected, selected)}
+        return {"ui": {"model_name": [selected]}, "result": (selected,)}
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

@@ -45,9 +45,13 @@ class ModelNameSelector:
             idx = models.index(model_name) if model_name in models else 0
             
             if control_after_generate == "increment":
-                selected = models[(idx + 1) % len(models)]
+                if idx < len(models) - 1:
+                    selected = models[idx + 1]
+                # else: already at end, don't change
             elif control_after_generate == "decrement":
-                selected = models[(idx - 1) % len(models)]
+                if idx > 0:
+                    selected = models[idx - 1]
+                # else: already at start, don't change
             elif control_after_generate == "randomize":
                 selected = random.choice(models)
         

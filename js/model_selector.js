@@ -6,7 +6,6 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name === "ModelNameSelector") {
             const onExecuted = nodeType.prototype.onExecuted;
-            
             nodeType.prototype.onExecuted = function(message) {
                 if (onExecuted) onExecuted.apply(this, arguments);
                 
@@ -28,27 +27,18 @@ app.registerExtension({
                 const controlWidget = this.widgets.find(w => w.name === "control_after_generate");
                 
                 if (modelTypeWidget && modelNameWidget) {
-                    // Store original callback
-                    const originalTypeCallback = modelTypeWidget.callback;
-                    
-                    // Update model list when type changes
+                    const originalCallback = modelTypeWidget.callback;
                     modelTypeWidget.callback = async function() {
-                        const response = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`);
-                        const models = await response.json();
-                        
+                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
                         modelNameWidget.options.values = models;
                         modelNameWidget.value = models[0] || "No models found";
-                        
                         app.graph.setDirtyCanvas(true);
-                        
-                        if (originalTypeCallback) return originalTypeCallback.apply(this, arguments);
+                        if (originalCallback) return originalCallback.apply(this, arguments);
                     };
                 }
                 
-                // Auto-switch to fixed when manually selecting model
                 if (modelNameWidget && controlWidget) {
                     const originalCallback = modelNameWidget.callback;
-                    
                     modelNameWidget.callback = function() {
                         controlWidget.value = "fixed";
                         if (originalCallback) return originalCallback.apply(this, arguments);

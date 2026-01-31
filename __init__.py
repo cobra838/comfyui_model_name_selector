@@ -1,17 +1,16 @@
 import folder_paths
 import random
+import server
+from aiohttp import web
 
 class ModelNameSelector:
     
     @classmethod
     def INPUT_TYPES(s):
-        # Start with all models for validation
-        all_models = s.get_models("All")
-        
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF"],),
-                "model_name": (all_models,),
+                "model_name": (s.get_models("All"),),
                 "control_after_generate": (["fixed", "increment", "decrement", "randomize"],),
             }
         }
@@ -59,15 +58,10 @@ class ModelNameSelector:
         
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
 
-# API endpoint for getting models by type
-import server
-from aiohttp import web
-
 @server.PromptServer.instance.routes.get("/model_selector/models")
 async def get_models_by_type(request):
     model_type = request.rel_url.query.get("type", "All")
-    models = ModelNameSelector.get_models(model_type)
-    return web.json_response(models)
+    return web.json_response(ModelNameSelector.get_models(model_type))
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

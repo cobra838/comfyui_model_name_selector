@@ -20,16 +20,36 @@ app.registerExtension({
             };
             
             const onNodeCreated = nodeType.prototype.onNodeCreated;
-            nodeType.prototype.onNodeCreated = function() {
+            nodeType.prototype.onNodeCreated = async function() {
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
                 
-                const modelWidget = this.widgets.find(w => w.name === "model_name");
+                const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                const modelNameWidget = this.widgets.find(w => w.name === "model_name");
                 const controlWidget = this.widgets.find(w => w.name === "control_after_generate");
                 
-                if (modelWidget && controlWidget) {
-                    const originalCallback = modelWidget.callback;
+                if (modelTypeWidget && modelNameWidget) {
+                    // Store original callback
+                    const originalTypeCallback = modelTypeWidget.callback;
                     
-                    modelWidget.callback = function() {
+                    // Update model list when type changes
+                    modelTypeWidget.callback = async function() {
+                        const response = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`);
+                        const models = await response.json();
+                        
+                        modelNameWidget.options.values = models;
+                        modelNameWidget.value = models[0] || "No models found";
+                        
+                        app.graph.setDirtyCanvas(true);
+                        
+                        if (originalTypeCallback) return originalTypeCallback.apply(this, arguments);
+                    };
+                }
+                
+                // Auto-switch to fixed when manually selecting model
+                if (modelNameWidget && controlWidget) {
+                    const originalCallback = modelNameWidget.callback;
+                    
+                    modelNameWidget.callback = function() {
                         controlWidget.value = "fixed";
                         if (originalCallback) return originalCallback.apply(this, arguments);
                     };

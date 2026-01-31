@@ -23,17 +23,33 @@ app.registerExtension({
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
                 
                 const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                const folderWidget = this.widgets.find(w => w.name === "folder");
                 const modelNameWidget = this.widgets.find(w => w.name === "model_name");
                 const controlWidget = this.widgets.find(w => w.name === "control_after_generate");
                 
-                if (modelTypeWidget && modelNameWidget) {
-                    const originalCallback = modelTypeWidget.callback;
+                if (modelTypeWidget && folderWidget && modelNameWidget) {
+                    const originalTypeCallback = modelTypeWidget.callback;
                     modelTypeWidget.callback = async function() {
-                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
+                        const folders = await fetch(`/model_selector/folders?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
+                        folderWidget.options.values = folders;
+                        folderWidget.value = "All";
+                        
+                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=All`).then(r => r.json());
                         modelNameWidget.options.values = models;
                         modelNameWidget.value = models[0] || "No models found";
+                        
                         app.graph.setDirtyCanvas(true);
-                        if (originalCallback) return originalCallback.apply(this, arguments);
+                        if (originalTypeCallback) return originalTypeCallback.apply(this, arguments);
+                    };
+                    
+                    const originalFolderCallback = folderWidget.callback;
+                    folderWidget.callback = async function() {
+                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}`).then(r => r.json());
+                        modelNameWidget.options.values = models;
+                        modelNameWidget.value = models[0] || "No models found";
+                        
+                        app.graph.setDirtyCanvas(true);
+                        if (originalFolderCallback) return originalFolderCallback.apply(this, arguments);
                     };
                 }
                 
@@ -51,13 +67,20 @@ app.registerExtension({
                 if (onConfigure) onConfigure.apply(this, arguments);
                 
                 const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                const folderWidget = this.widgets.find(w => w.name === "folder");
                 const modelNameWidget = this.widgets.find(w => w.name === "model_name");
                 
-                if (modelTypeWidget && modelNameWidget) {
-                    const savedModelName = modelNameWidget.value;
-                    const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
+                if (modelTypeWidget && folderWidget && modelNameWidget) {
+                    const savedFolder = folderWidget.value;
+                    const savedModel = modelNameWidget.value;
+                    
+                    const folders = await fetch(`/model_selector/folders?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
+                    folderWidget.options.values = folders;
+                    folderWidget.value = savedFolder;
+                    
+                    const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}`).then(r => r.json());
                     modelNameWidget.options.values = models;
-                    modelNameWidget.value = savedModelName;
+                    modelNameWidget.value = savedModel;
                 }
             };
         }

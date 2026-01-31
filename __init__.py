@@ -7,6 +7,7 @@ class ModelNameSelector:
     def INPUT_TYPES(s):
         models = folder_paths.get_filename_list("checkpoints")
         models += folder_paths.get_filename_list("diffusion_models")
+        models += folder_paths.get_filename_list("unet_gguf")
         
         return {
             "required": {
@@ -24,6 +25,7 @@ class ModelNameSelector:
     def get_name(self, model_name, control_after_generate):
         models = folder_paths.get_filename_list("checkpoints")
         models += folder_paths.get_filename_list("diffusion_models")
+        models += folder_paths.get_filename_list("unet_gguf")
         models = sorted(models)
         
         if not models:

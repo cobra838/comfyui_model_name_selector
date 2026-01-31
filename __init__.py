@@ -47,11 +47,13 @@ class ModelNameSelector:
             if control_after_generate == "increment":
                 if idx < len(models) - 1:
                     selected = models[idx + 1]
-                # else: already at end, don't change
+                else:
+                    raise ValueError(f"Reached end of model list (last model: {model_name})")
             elif control_after_generate == "decrement":
                 if idx > 0:
                     selected = models[idx - 1]
-                # else: already at start, don't change
+                else:
+                    raise ValueError(f"Reached start of model list (first model: {model_name})")
             elif control_after_generate == "randomize":
                 selected = random.choice(models)
         

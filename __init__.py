@@ -38,10 +38,13 @@ class ModelNameSelector:
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
         
+        if model_name not in models:
+            model_name = models[0]
+        
         selected = model_name
         
         if control_after_generate != "fixed":
-            idx = models.index(model_name) if model_name in models else 0
+            idx = models.index(model_name)
             
             if control_after_generate == "increment":
                 if idx < len(models) - 1:
@@ -54,7 +57,11 @@ class ModelNameSelector:
                 else:
                     raise ValueError(f"Reached start of model list (first model: {model_name})")
             elif control_after_generate == "randomize":
-                selected = random.choice(models)
+                if len(models) > 1:
+                    other_models = [m for m in models if m != model_name]
+                    selected = random.choice(other_models)
+                else:
+                    selected = models[0]
         
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
 

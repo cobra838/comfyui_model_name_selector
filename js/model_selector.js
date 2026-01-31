@@ -18,6 +18,23 @@ app.registerExtension({
                     }
                 }
             };
+            
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function() {
+                if (onNodeCreated) onNodeCreated.apply(this, arguments);
+                
+                const modelWidget = this.widgets.find(w => w.name === "model_name");
+                const controlWidget = this.widgets.find(w => w.name === "control_after_generate");
+                
+                if (modelWidget && controlWidget) {
+                    const originalCallback = modelWidget.callback;
+                    
+                    modelWidget.callback = function() {
+                        controlWidget.value = "fixed";
+                        if (originalCallback) return originalCallback.apply(this, arguments);
+                    };
+                }
+            };
         }
     }
 });

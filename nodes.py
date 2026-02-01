@@ -21,12 +21,12 @@ class ModelNameSelector:
                 if len(parts) > 2:
                     all_subfolders.append(parts[1])
         
-        all_subfolders = sorted(list(set(all_subfolders)), key=lambda x: x == "All")
+        all_subfolders = sorted(list(set(all_subfolders)), key=lambda x: x != "All")
         
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF"],),
-                "folder": (ModelManager.get_folders("All"),),
+                "folder": (ModelManager.get_folders("All"), {"default": "All"}),
                 "subfolder": (all_subfolders,),
                 "model_name": (ModelManager.get_models("All", "All", "All"),),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),

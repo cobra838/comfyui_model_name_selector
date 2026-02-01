@@ -41,7 +41,7 @@ class ModelManager:
             else:
                 folders.add("(Root)")
         
-        return sorted(folders, key=lambda x: (x == "All", x == "(Root)", x))
+        return sorted(folders, key=lambda x: (x != "All", x == "(Root)", x))
     
     @classmethod
     def get_subfolders(cls, model_type: str, folder: str) -> List[str]:
@@ -61,7 +61,7 @@ class ModelManager:
                 if len(parts) > 1:
                     subfolders.add(parts[0])
         
-        return sorted(subfolders, key=lambda x: x == "All")
+        return sorted(subfolders, key=lambda x: x != "All")
     
     @classmethod
     def filter_models(cls, models: List[str], folder: str, subfolder: str) -> List[str]:

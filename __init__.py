@@ -11,7 +11,8 @@ class ModelNameSelector:
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF"],),
                 "folder": (s.get_folders("All"),),
-                "model_name": (s.get_models("All", "All"),),
+                "subfolder": (["All"],),
+                "model_name": (s.get_models("All", "All", "All"),),
                 "control_after_generate": (["fixed", "increment", "decrement", "randomize"],),
             }
         }
@@ -37,7 +38,32 @@ class ModelNameSelector:
         return sorted(folders, key=lambda x: (x == "All", x == "(Root)", x))
     
     @classmethod
-    def get_models(s, model_type, folder):
+    def get_subfolders(s, model_type, folder):
+        if folder == "All":
+            return ["All"]
+        
+        models = []
+        if model_type in ["All", "Checkpoints"]:
+            models += folder_paths.get_filename_list("checkpoints")
+        if model_type in ["All", "Diffusion Models"]:
+            models += folder_paths.get_filename_list("diffusion_models")
+        if model_type in ["All", "GGUF"]:
+            models += folder_paths.get_filename_list("unet_gguf")
+        
+        if folder == "(Root)":
+            return ["All"]
+        
+        subfolders = set(["All"])
+        for model in models:
+            if model.startswith(folder + '\\') or model.startswith(folder + '/'):
+                parts = model.replace(folder + '\\', '').replace(folder + '/', '').split('\\' if '\\' in model else '/')
+                if len(parts) > 1:
+                    subfolders.add(parts[0])
+        
+        return sorted(subfolders, key=lambda x: x == "All")
+    
+    @classmethod
+    def get_models(s, model_type, folder, subfolder):
         models = []
         if model_type in ["All", "Checkpoints"]:
             models += folder_paths.get_filename_list("checkpoints")
@@ -52,6 +78,14 @@ class ModelNameSelector:
             else:
                 models = [m for m in models if m.startswith(folder + '\\') or m.startswith(folder + '/')]
         
+        if subfolder != "All" and folder != "All" and folder != "(Root)":
+            if models:
+                sep = '\\' if '\\' in models[0] else '/'
+            else:
+                sep = '\\'
+            prefix = folder + sep + subfolder + sep
+            models = [m for m in models if m.startswith(prefix)]
+        
         return sorted(models) if models else ["No models found"]
     
     RETURN_TYPES = ("*",)
@@ -60,8 +94,8 @@ class ModelNameSelector:
     CATEGORY = "loaders"
     OUTPUT_NODE = True
     
-    def get_name(self, model_type, folder, model_name, control_after_generate):
-        models = self.get_models(model_type, folder)
+    def get_name(self, model_type, folder, subfolder, model_name, control_after_generate):
+        models = self.get_models(model_type, folder, subfolder)
         
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
@@ -98,11 +132,18 @@ async def get_folders_by_type(request):
     model_type = request.rel_url.query.get("type", "All")
     return web.json_response(ModelNameSelector.get_folders(model_type))
 
+@server.PromptServer.instance.routes.get("/model_selector/subfolders")
+async def get_subfolders_by_folder(request):
+    model_type = request.rel_url.query.get("type", "All")
+    folder = request.rel_url.query.get("folder", "All")
+    return web.json_response(ModelNameSelector.get_subfolders(model_type, folder))
+
 @server.PromptServer.instance.routes.get("/model_selector/models")
 async def get_models_by_type(request):
     model_type = request.rel_url.query.get("type", "All")
     folder = request.rel_url.query.get("folder", "All")
-    return web.json_response(ModelNameSelector.get_models(model_type, folder))
+    subfolder = request.rel_url.query.get("subfolder", "All")
+    return web.json_response(ModelNameSelector.get_models(model_type, folder, subfolder))
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

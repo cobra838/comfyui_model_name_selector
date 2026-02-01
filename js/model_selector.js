@@ -220,7 +220,7 @@ app.registerExtension({
                     folder: this.widgets.find(w => w.name === "folder"),
                     subfolder: this.widgets.find(w => w.name === "subfolder"),
                     modelName: this.widgets.find(w => w.name === "model_name"),
-                    control: this.widgets.find(w => w.name === "control_after_generate")
+                    control: this.widgets.find(w => w.name === "after_generate")
                 };
                 
                 if (Object.values(widgets).every(w => w)) {
@@ -241,7 +241,7 @@ app.registerExtension({
                     folder: this.widgets.find(w => w.name === "folder"),
                     subfolder: this.widgets.find(w => w.name === "subfolder"),
                     modelName: this.widgets.find(w => w.name === "model_name"),
-                    control: this.widgets.find(w => w.name === "control_after_generate")
+                    control: this.widgets.find(w => w.name === "after_generate")
                 };
                 
                 if (Object.values(widgets).every(w => w)) {

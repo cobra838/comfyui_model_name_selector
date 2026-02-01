@@ -29,7 +29,7 @@ class ModelNameSelector:
                 "folder": (ModelManager.get_folders("All"),),
                 "subfolder": (all_subfolders,),
                 "model_name": (ModelManager.get_models("All", "All", "All"),),
-                "control_after_generate": (["fixed", "increment", "decrement", "randomize"],),
+                "after_generate": (["fixed", "increment", "decrement", "randomize"],),
             }
         }
     
@@ -45,7 +45,7 @@ class ModelNameSelector:
         folder: str, 
         subfolder: str, 
         model_name: str, 
-        control_after_generate: str
+        after_generate: str
     ) -> Dict[str, Any]:
         """Execute model selection with optional auto-control."""
         models = ModelManager.get_models(model_type, folder, subfolder)
@@ -56,7 +56,7 @@ class ModelNameSelector:
         if model_name not in models:
             model_name = models[0]
         
-        selected = self._apply_control(model_name, models, control_after_generate)
+        selected = self._apply_control(model_name, models, after_generate)
         
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
     

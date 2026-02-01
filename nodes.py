@@ -11,11 +11,23 @@ class ModelNameSelector:
     
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
+        all_subfolders = ["All"]
+        models = ModelManager.get_models_by_type("All")
+        
+        for model in models:
+            if '\\' in model or '/' in model:
+                sep = '\\' if '\\' in model else '/'
+                parts = model.split(sep)
+                if len(parts) > 2:
+                    all_subfolders.append(parts[1])
+        
+        all_subfolders = sorted(list(set(all_subfolders)), key=lambda x: x == "All")
+        
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF"],),
                 "folder": (ModelManager.get_folders("All"),),
-                "subfolder": (["All"],),
+                "subfolder": (all_subfolders,),
                 "model_name": (ModelManager.get_models("All", "All", "All"),),
                 "control_after_generate": (["fixed", "increment", "decrement", "randomize"],),
             }

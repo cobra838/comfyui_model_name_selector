@@ -1,152 +1,369 @@
 import { app } from "../../scripts/app.js";
 
-// toggleWidget function adapted from yolain/ComfyUI-Easy-Use
-const origProps = {};
-
-function toggleWidget(node, widget, show = false) {
-    if (!widget) return;
-    
-    if (!origProps[widget.name]) {
-        origProps[widget.name] = { origType: widget.type, origComputeSize: widget.computeSize };
+class WidgetPropsStorage {
+    constructor() {
+        this.props = {};
     }
     
-    const origSize = node.size;
-    widget.type = show ? origProps[widget.name].origType : "hidden";
-    widget.computeSize = show ? origProps[widget.name].origComputeSize : () => [0, -4];
-    
-    const height = show ? Math.max(node.computeSize()[1], origSize[1]) : node.size[1];
-    node.setSize([node.size[0], height]);
-}
-
-app.registerExtension({
-    name: "ModelNameSelector",
-    
-    async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name === "ModelNameSelector") {
-            const onExecuted = nodeType.prototype.onExecuted;
-            nodeType.prototype.onExecuted = function(message) {
-                if (onExecuted) onExecuted.apply(this, arguments);
-                
-                if (message?.model_name) {
-                    const widget = this.widgets.find(w => w.name === "model_name");
-                    if (widget) {
-                        widget.value = message.model_name[0];
-                        app.graph.setDirtyCanvas(true);
-                    }
-                }
-            };
-            
-            const onNodeCreated = nodeType.prototype.onNodeCreated;
-            nodeType.prototype.onNodeCreated = async function() {
-                if (onNodeCreated) onNodeCreated.apply(this, arguments);
-                
-                const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
-                const folderWidget = this.widgets.find(w => w.name === "folder");
-                const subfolderWidget = this.widgets.find(w => w.name === "subfolder");
-                const modelNameWidget = this.widgets.find(w => w.name === "model_name");
-                const controlWidget = this.widgets.find(w => w.name === "control_after_generate");
-                
-                if (modelTypeWidget && folderWidget && subfolderWidget && modelNameWidget) {
-                    const node = this;
-                    
-                    const originalTypeCallback = modelTypeWidget.callback;
-                    modelTypeWidget.callback = async function() {
-                        const folders = await fetch(`/model_selector/folders?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
-                        folderWidget.options.values = folders;
-                        folderWidget.value = "All";
-                        
-                        toggleWidget(node, subfolderWidget, false);
-                        
-                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=All&subfolder=All`).then(r => r.json());
-                        modelNameWidget.options.values = models;
-                        modelNameWidget.value = models[0] || "No models found";
-                        
-                        app.graph.setDirtyCanvas(true);
-                        if (originalTypeCallback) return originalTypeCallback.apply(this, arguments);
-                    };
-                    
-                    const originalFolderCallback = folderWidget.callback;
-                    folderWidget.callback = async function() {
-                        const subfolders = await fetch(`/model_selector/subfolders?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}`).then(r => r.json());
-                        
-                        if (folderWidget.value === "All" || subfolders.length === 1) {
-                            toggleWidget(node, subfolderWidget, false);
-                            subfolderWidget.value = "All";
-                        } else {
-                            subfolderWidget.options.values = subfolders;
-                            subfolderWidget.value = "All";
-                            toggleWidget(node, subfolderWidget, true);
-                        }
-                        
-                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=All`).then(r => r.json());
-                        modelNameWidget.options.values = models;
-                        modelNameWidget.value = models[0] || "No models found";
-                        
-                        app.graph.setDirtyCanvas(true);
-                        if (originalFolderCallback) return originalFolderCallback.apply(this, arguments);
-                    };
-                    
-                    const originalSubfolderCallback = subfolderWidget.callback;
-                    subfolderWidget.callback = async function() {
-                        const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
-                        modelNameWidget.options.values = models;
-                        modelNameWidget.value = models[0] || "No models found";
-                        
-                        app.graph.setDirtyCanvas(true);
-                        if (originalSubfolderCallback) return originalSubfolderCallback.apply(this, arguments);
-                    };
-                }
-                
-                if (modelNameWidget && controlWidget) {
-                    const originalCallback = modelNameWidget.callback;
-                    modelNameWidget.callback = function() {
-                        controlWidget.value = "fixed";
-                        if (originalCallback) return originalCallback.apply(this, arguments);
-                    };
-                }
-                
-                // Hide subfolder initially if needed
-                if (folderWidget && subfolderWidget) {
-                    if (folderWidget.value === "All") {
-                        toggleWidget(node, subfolderWidget, false);
-                    }
-                }
-            };
-            
-            const onConfigure = nodeType.prototype.onConfigure;
-            nodeType.prototype.onConfigure = async function() {
-                if (onConfigure) onConfigure.apply(this, arguments);
-                
-                const node = this;
-                const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
-                const folderWidget = this.widgets.find(w => w.name === "folder");
-                const subfolderWidget = this.widgets.find(w => w.name === "subfolder");
-                const modelNameWidget = this.widgets.find(w => w.name === "model_name");
-                
-                if (modelTypeWidget && folderWidget && subfolderWidget && modelNameWidget) {
-                    const savedFolder = folderWidget.value;
-                    const savedSubfolder = subfolderWidget.value;
-                    const savedModel = modelNameWidget.value;
-                    
-                    const folders = await fetch(`/model_selector/folders?type=${encodeURIComponent(modelTypeWidget.value)}`).then(r => r.json());
-                    folderWidget.options.values = folders;
-                    folderWidget.value = savedFolder;
-                    
-                    const subfolders = await fetch(`/model_selector/subfolders?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}`).then(r => r.json());
-                    
-                    if (folderWidget.value === "All" || subfolders.length === 1) {
-                        toggleWidget(node, subfolderWidget, false);
-                    } else {
-                        subfolderWidget.options.values = subfolders;
-                        subfolderWidget.value = savedSubfolder;
-                        toggleWidget(node, subfolderWidget, true);
-                    }
-                    
-                    const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
-                    modelNameWidget.options.values = models;
-                    modelNameWidget.value = savedModel;
-                }
-            };
+    save(widgetName, type, computeSize) {
+        if (!this.props[widgetName]) {
+            this.props[widgetName] = { type, computeSize };
         }
     }
-});
+    
+    get(widgetName) {
+        return this.props[widgetName];
+    }
+}
+
+class WidgetToggler {
+    constructor(storage) {
+        this.storage = storage;
+    }
+    
+    toggle(node, widget, show) {
+        if (!widget) return;
+        
+        this.storage.save(widget.name, widget.type, widget.computeSize);
+        
+        const origSize = node.size;
+        const saved = this.storage.get(widget.name);
+        
+        widget.type = show ? saved.type : "hidden";
+        widget.computeSize = show ? saved.computeSize : () => [0, -4];
+        
+        const height = show ? Math.max(node.computeSize()[1], origSize[1]) : node.size[1];
+        node.setSize([node.size[0], height]);
+    }
+}
+
+class ModelSelectorAPI {
+    async fetchFolders(modelType) {
+        const url = `/model_selector/folders?type=${encodeURIComponent(modelType)}`;
+        const response = await fetch(url);
+        return response.json();
+    }
+    
+    async fetchSubfolders(modelType, folder) {
+        const url = `/model_selector/subfolders?type=${encodeURIComponent(modelType)}&folder=${encodeURIComponent(folder)}`;
+        const response = await fetch(url);
+        return response.json();
+    }
+    
+    async fetchModels(modelType, folder, subfolder) {
+        const url = `/model_selector/models?type=${encodeURIComponent(modelType)}&folder=${encodeURIComponent(folder)}&subfolder=${encodeURIComponent(subfolder)}`;
+        const response = await fetch(url);
+        return response.json();
+    }
+}
+
+class WidgetGroup {
+    constructor(node) {
+        this.modelType = node.widgets.find(w => w.name === "model_type");
+        this.folder = node.widgets.find(w => w.name === "folder");
+        this.subfolder = node.widgets.find(w => w.name === "subfolder");
+        this.modelName = node.widgets.find(w => w.name === "model_name");
+        this.control = node.widgets.find(w => w.name === "control_after_generate");
+    }
+    
+    isValid() {
+        return this.modelType && this.folder && this.subfolder && this.modelName && this.control;
+    }
+}
+
+class ModelTypeHandler {
+    constructor(widgets, api, toggler, node) {
+        this.widgets = widgets;
+        this.api = api;
+        this.toggler = toggler;
+        this.node = node;
+        this.originalCallback = null;
+    }
+    
+    setup() {
+        this.originalCallback = this.widgets.modelType.callback;
+        this.widgets.modelType.callback = async () => await this.handleChange();
+    }
+    
+    async handleChange() {
+        const folders = await this.api.fetchFolders(this.widgets.modelType.value);
+        this.widgets.folder.options.values = folders;
+        this.widgets.folder.value = "All";
+        
+        this.toggler.toggle(this.node, this.widgets.subfolder, false);
+        
+        const models = await this.api.fetchModels(this.widgets.modelType.value, "All", "All");
+        this.widgets.modelName.options.values = models;
+        this.widgets.modelName.value = models[0] || "No models found";
+        
+        app.graph.setDirtyCanvas(true);
+        
+        if (this.originalCallback) {
+            return this.originalCallback.apply(this.widgets.modelType, arguments);
+        }
+    }
+}
+
+class FolderHandler {
+    constructor(widgets, api, toggler, node) {
+        this.widgets = widgets;
+        this.api = api;
+        this.toggler = toggler;
+        this.node = node;
+        this.originalCallback = null;
+    }
+    
+    setup() {
+        this.originalCallback = this.widgets.folder.callback;
+        this.widgets.folder.callback = async () => await this.handleChange();
+    }
+    
+    async handleChange() {
+        const subfolders = await this.api.fetchSubfolders(this.widgets.modelType.value, this.widgets.folder.value);
+        
+        if (this.widgets.folder.value === "All" || subfolders.length === 1) {
+            this.toggler.toggle(this.node, this.widgets.subfolder, false);
+            this.widgets.subfolder.value = "All";
+        } else {
+            this.widgets.subfolder.options.values = subfolders;
+            this.widgets.subfolder.value = "All";
+            this.toggler.toggle(this.node, this.widgets.subfolder, true);
+        }
+        
+        const models = await this.api.fetchModels(this.widgets.modelType.value, this.widgets.folder.value, "All");
+        this.widgets.modelName.options.values = models;
+        this.widgets.modelName.value = models[0] || "No models found";
+        
+        app.graph.setDirtyCanvas(true);
+        
+        if (this.originalCallback) {
+            return this.originalCallback.apply(this.widgets.folder, arguments);
+        }
+    }
+}
+
+class SubfolderHandler {
+    constructor(widgets, api) {
+        this.widgets = widgets;
+        this.api = api;
+        this.originalCallback = null;
+    }
+    
+    setup() {
+        this.originalCallback = this.widgets.subfolder.callback;
+        this.widgets.subfolder.callback = async () => await this.handleChange();
+    }
+    
+    async handleChange() {
+        const models = await this.api.fetchModels(
+            this.widgets.modelType.value,
+            this.widgets.folder.value,
+            this.widgets.subfolder.value
+        );
+        this.widgets.modelName.options.values = models;
+        this.widgets.modelName.value = models[0] || "No models found";
+        
+        app.graph.setDirtyCanvas(true);
+        
+        if (this.originalCallback) {
+            return this.originalCallback.apply(this.widgets.subfolder, arguments);
+        }
+    }
+}
+
+class ModelNameHandler {
+    constructor(widgets) {
+        this.widgets = widgets;
+        this.originalCallback = null;
+    }
+    
+    setup() {
+        this.originalCallback = this.widgets.modelName.callback;
+        this.widgets.modelName.callback = () => this.handleChange();
+    }
+    
+    handleChange() {
+        this.widgets.control.value = "fixed";
+        
+        if (this.originalCallback) {
+            return this.originalCallback.apply(this.widgets.modelName, arguments);
+        }
+    }
+}
+
+class CallbackSetup {
+    constructor(widgets, api, toggler, node) {
+        this.typeHandler = new ModelTypeHandler(widgets, api, toggler, node);
+        this.folderHandler = new FolderHandler(widgets, api, toggler, node);
+        this.subfolderHandler = new SubfolderHandler(widgets, api);
+        this.modelHandler = new ModelNameHandler(widgets);
+    }
+    
+    setupAll() {
+        this.typeHandler.setup();
+        this.folderHandler.setup();
+        this.subfolderHandler.setup();
+        this.modelHandler.setup();
+    }
+}
+
+class StateRestorer {
+    constructor(widgets, api, toggler, node) {
+        this.widgets = widgets;
+        this.api = api;
+        this.toggler = toggler;
+        this.node = node;
+    }
+    
+    async restore() {
+        const saved = this.saveCurrentValues();
+        await this.restoreFolders(saved.folder);
+        await this.restoreSubfolders(saved.subfolder);
+        await this.restoreModels(saved.model);
+    }
+    
+    saveCurrentValues() {
+        return {
+            folder: this.widgets.folder.value,
+            subfolder: this.widgets.subfolder.value,
+            model: this.widgets.modelName.value
+        };
+    }
+    
+    async restoreFolders(savedFolder) {
+        const folders = await this.api.fetchFolders(this.widgets.modelType.value);
+        this.widgets.folder.options.values = folders;
+        this.widgets.folder.value = savedFolder;
+    }
+    
+    async restoreSubfolders(savedSubfolder) {
+        const subfolders = await this.api.fetchSubfolders(this.widgets.modelType.value, this.widgets.folder.value);
+        
+        if (this.widgets.folder.value === "All" || subfolders.length === 1) {
+            this.widgets.subfolder.options.values = subfolders;
+            this.widgets.subfolder.value = "All";
+            this.toggler.toggle(this.node, this.widgets.subfolder, false);
+        } else {
+            this.widgets.subfolder.options.values = subfolders;
+            this.widgets.subfolder.value = subfolders.includes(savedSubfolder) ? savedSubfolder : "All";
+            this.toggler.toggle(this.node, this.widgets.subfolder, true);
+        }
+    }
+    
+    async restoreModels(savedModel) {
+        const models = await this.api.fetchModels(
+            this.widgets.modelType.value,
+            this.widgets.folder.value,
+            this.widgets.subfolder.value
+        );
+        this.widgets.modelName.options.values = models;
+        this.widgets.modelName.value = savedModel;
+    }
+}
+
+class InitialVisibility {
+    constructor(widgets, toggler, node) {
+        this.widgets = widgets;
+        this.toggler = toggler;
+        this.node = node;
+    }
+    
+    apply() {
+        if (this.widgets.folder.value === "All") {
+            this.toggler.toggle(this.node, this.widgets.subfolder, false);
+        }
+    }
+}
+
+class ModelSelectorNode {
+    constructor(node) {
+        this.node = node;
+        this.widgets = new WidgetGroup(node);
+        this.storage = new WidgetPropsStorage();
+        this.toggler = new WidgetToggler(this.storage);
+        this.api = new ModelSelectorAPI();
+    }
+    
+    setupCallbacks() {
+        if (!this.widgets.isValid()) return;
+        
+        const setup = new CallbackSetup(this.widgets, this.api, this.toggler, this.node);
+        setup.setupAll();
+    }
+    
+    async restoreState() {
+        if (!this.widgets.isValid()) return;
+        
+        const restorer = new StateRestorer(this.widgets, this.api, this.toggler, this.node);
+        await restorer.restore();
+    }
+    
+    initializeVisibility() {
+        if (!this.widgets.isValid()) return;
+        
+        const visibility = new InitialVisibility(this.widgets, this.toggler, this.node);
+        visibility.apply();
+    }
+    
+    updateModelName(value) {
+        if (this.widgets.modelName) {
+            this.widgets.modelName.value = value;
+            app.graph.setDirtyCanvas(true);
+        }
+    }
+}
+
+class NodeExtension {
+    register() {
+        app.registerExtension({
+            name: "ModelNameSelector",
+            async beforeRegisterNodeDef(nodeType, nodeData) {
+                if (nodeData.name !== "ModelNameSelector") return;
+                
+                this.setupOnExecuted(nodeType);
+                this.setupOnNodeCreated(nodeType);
+                this.setupOnConfigure(nodeType);
+            },
+            
+            setupOnExecuted(nodeType) {
+                const original = nodeType.prototype.onExecuted;
+                nodeType.prototype.onExecuted = function(message) {
+                    if (original) original.apply(this, arguments);
+                    
+                    if (message?.model_name) {
+                        if (!this.modelSelector) {
+                            this.modelSelector = new ModelSelectorNode(this);
+                        }
+                        this.modelSelector.updateModelName(message.model_name[0]);
+                    }
+                };
+            },
+            
+            setupOnNodeCreated(nodeType) {
+                const original = nodeType.prototype.onNodeCreated;
+                nodeType.prototype.onNodeCreated = async function() {
+                    if (original) original.apply(this, arguments);
+                    
+                    this.modelSelector = new ModelSelectorNode(this);
+                    this.modelSelector.setupCallbacks();
+                    this.modelSelector.initializeVisibility();
+                };
+            },
+            
+            setupOnConfigure(nodeType) {
+                const original = nodeType.prototype.onConfigure;
+                nodeType.prototype.onConfigure = async function() {
+                    if (original) original.apply(this, arguments);
+                    
+                    if (!this.modelSelector) {
+                        this.modelSelector = new ModelSelectorNode(this);
+                    }
+                    await this.modelSelector.restoreState();
+                };
+            }
+        });
+    }
+}
+
+const extension = new NodeExtension();
+extension.register();

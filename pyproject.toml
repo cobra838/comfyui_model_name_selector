@@ -1,0 +1,21 @@
+[project]
+name = "comfyui-model-name-selector"
+version = "1.0.0"
+description = "Enhanced model selection node for ComfyUI with type/folder filtering and auto-control features"
+authors = [
+    {name = "Your Name"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["comfyui", "stable-diffusion", "model-selector"]
+
+[project.urls]
+Homepage = "https://github.com/cobra838/comfyui_model_name_selector"
+Repository = "https://github.com/cobra838/comfyui_model_name_selector"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["comfyui_model_name_selector"]

@@ -30,7 +30,11 @@ class ModelManager:
     @classmethod
     def get_folders(cls, model_type: str) -> List[str]:
         """Extract unique top-level folders from models."""
-        models = cls.get_models_by_type(model_type)
+        if model_type == "Favorites":
+            from .favorites_manager import FavoritesManager
+            models = FavoritesManager.load_favorites()
+        else:
+            models = cls.get_models_by_type(model_type)
         folders: Set[str] = {"All"}
         
         for model in models:
@@ -49,7 +53,11 @@ class ModelManager:
         if folder == "All" or folder == "(Root)":
             return ["All"]
         
-        models = cls.get_models_by_type(model_type)
+        if model_type == "Favorites":
+            from .favorites_manager import FavoritesManager
+            models = FavoritesManager.load_favorites()
+        else:
+            models = cls.get_models_by_type(model_type)
         subfolders: Set[str] = {"All"}
         
         for model in models:
@@ -61,7 +69,7 @@ class ModelManager:
                 if len(parts) > 1:
                     subfolders.add(parts[0])
         
-        return sorted(subfolders, key=lambda x: x != "All")
+        return sorted(subfolders, key=lambda x: (x != "All", x.lower()))
     
     @classmethod
     def filter_models(cls, models: List[str], folder: str, subfolder: str) -> List[str]:
@@ -86,6 +94,12 @@ class ModelManager:
     @classmethod
     def get_models(cls, model_type: str, folder: str, subfolder: str) -> List[str]:
         """Get filtered and sorted list of models."""
+        if model_type == "Favorites":
+            from .favorites_manager import FavoritesManager
+            favorites = FavoritesManager.load_favorites()
+            filtered = cls.filter_models(favorites, folder, subfolder)
+            return sorted(filtered) if filtered else ["No models found"]
+        
         models = cls.get_models_by_type(model_type)
         models = cls.filter_models(models, folder, subfolder)
         return sorted(models) if models else ["No models found"]

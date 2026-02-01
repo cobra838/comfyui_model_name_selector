@@ -11,6 +11,8 @@ class ModelNameSelector:
     
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
+        from .favorites_manager import FavoritesManager
+        
         all_subfolders = ["All"]
         models = ModelManager.get_models_by_type("All")
         
@@ -25,7 +27,7 @@ class ModelNameSelector:
         
         return {
             "required": {
-                "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF"],),
+                "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
                 "folder": (ModelManager.get_folders("All"), {"default": "All"}),
                 "subfolder": (all_subfolders,),
                 "model_name": (ModelManager.get_models("All", "All", "All"),),

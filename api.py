@@ -4,6 +4,7 @@ import server
 from aiohttp import web
 
 from .model_manager import ModelManager
+from .favorites_manager import FavoritesManager
 
 
 @server.PromptServer.instance.routes.get("/model_selector/folders")
@@ -31,3 +32,40 @@ async def get_models_endpoint(request):
     subfolder = request.rel_url.query.get("subfolder", "All")
     models = ModelManager.get_models(model_type, folder, subfolder)
     return web.json_response(models)
+
+
+@server.PromptServer.instance.routes.get("/model_selector/favorites")
+async def get_favorites_endpoint(request):
+    """Get list of favorite models."""
+    favorites = FavoritesManager.load_favorites()
+    return web.json_response(favorites)
+
+
+@server.PromptServer.instance.routes.post("/model_selector/favorites/add")
+async def add_favorite_endpoint(request):
+    """Add model to favorites."""
+    data = await request.json()
+    model = data.get("model")
+    if model:
+        favorites = FavoritesManager.add_favorite(model)
+        return web.json_response({"success": True, "favorites": favorites})
+    return web.json_response({"success": False}, status=400)
+
+
+@server.PromptServer.instance.routes.post("/model_selector/favorites/remove")
+async def remove_favorite_endpoint(request):
+    """Remove model from favorites."""
+    data = await request.json()
+    model = data.get("model")
+    if model:
+        favorites = FavoritesManager.remove_favorite(model)
+        return web.json_response({"success": True, "favorites": favorites})
+    return web.json_response({"success": False}, status=400)
+
+
+@server.PromptServer.instance.routes.get("/model_selector/favorites/check")
+async def check_favorite_endpoint(request):
+    """Check if model is in favorites."""
+    model = request.rel_url.query.get("model", "")
+    is_fav = FavoritesManager.is_favorite(model)
+    return web.json_response({"is_favorite": is_fav})

@@ -49,10 +49,25 @@ class ModelTypeHandler {
     setup() {
         const original = this.widgets.modelType.callback;
         this.widgets.modelType.callback = async () => {
+            if (this.widgets.modelType.value === "Favorites") {
+                const folders = await API.getFolders("Favorites");
+                this.widgets.folder.options.values = folders;
+                const response = await fetch("/model_selector/favorites");
+                const favorites = await response.json();
+                this.widgets.folder.value = "All";
+                this.widgets.subfolder.value = "All";
+                WidgetVisibility.toggle(this.node, this.widgets.subfolder, false);
+                this.widgets.modelName.options.values = favorites.length > 0 ? favorites : ["No models found"];
+                this.widgets.modelName.value = favorites[0] || "No models found";
+                app.graph.setDirtyCanvas(true);
+                if (original) return original.apply(this.widgets.modelType, arguments);
+                return;
+            }
+            
             const folders = await API.getFolders(this.widgets.modelType.value);
             this.widgets.folder.options.values = folders;
             this.widgets.folder.value = "All";
-            
+
             WidgetVisibility.toggle(this.node, this.widgets.subfolder, false);
             
             const models = await API.getModels(this.widgets.modelType.value, "All", "All");
@@ -209,6 +224,61 @@ app.registerExtension({
                         app.graph.setDirtyCanvas(true);
                     }
                 }
+            };
+            
+            // Add right-click menu options for favorites
+            const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
+            nodeType.prototype.getExtraMenuOptions = function(_, options) {
+                if (getExtraMenuOptions) getExtraMenuOptions.apply(this, arguments);
+                
+                const modelWidget = this.widgets.find(w => w.name === "model_name");
+                if (!modelWidget || modelWidget.value === "No models found") return;
+                
+                options.unshift(
+                    {
+                        content: "⭐ Add to Favorites",
+                        callback: async () => {
+                            try {
+                                const response = await fetch("/model_selector/favorites/add", {
+                                    method: "POST",
+                                    headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({model: modelWidget.value})
+                                });
+                                const result = await response.json();
+                                if (result.success) {
+                                    console.log("Added to favorites:", modelWidget.value);
+                                }
+                            } catch (err) {
+                                console.error("Failed to add favorite:", err);
+                            }
+                        }
+                    },
+                    {
+                        content: "❌ Remove from Favorites",
+                        callback: async () => {
+                            try {
+                                const response = await fetch("/model_selector/favorites/remove", {
+                                    method: "POST",
+                                    headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({model: modelWidget.value})
+                                });
+                                const result = await response.json();
+                                if (result.success) {
+                                    // console.log("Removed from favorites:", modelWidget.value);
+                                    // Upd list after del
+                                    const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                                    if (modelTypeWidget && modelTypeWidget.value === "Favorites") {
+                                        modelWidget.options.values = result.favorites.length > 0 ? result.favorites : ["No models found"];
+                                        modelWidget.value = result.favorites[0] || "No models found";
+                                        app.graph.setDirtyCanvas(true);
+                                    }
+                                }
+                            } catch (err) {
+                                console.error("Failed to remove favorite:", err);
+                            }
+                        }
+                    }
+                );
             };
             
             const onNodeCreated = nodeType.prototype.onNodeCreated;

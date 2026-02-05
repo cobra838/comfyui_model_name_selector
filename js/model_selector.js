@@ -48,34 +48,46 @@ class ModelTypeHandler {
     
     setup() {
         const original = this.widgets.modelType.callback;
-        this.widgets.modelType.callback = async () => {
-            if (this.widgets.modelType.value === "Favorites") {
+        const self = this;
+        
+        this.widgets.modelType.callback = async function() {
+            if (self.widgets.modelType.value === "Favorites") {
                 const folders = await API.getFolders("Favorites");
-                this.widgets.folder.options.values = folders;
+                self.widgets.folder.options.values = folders;
                 const response = await fetch("/model_selector/favorites");
                 const favorites = await response.json();
-                this.widgets.folder.value = "All";
-                this.widgets.subfolder.value = "All";
-                WidgetVisibility.toggle(this.node, this.widgets.subfolder, false);
-                this.widgets.modelName.options.values = favorites.length > 0 ? favorites : ["No models found"];
-                this.widgets.modelName.value = favorites[0] || "No models found";
+                self.widgets.folder.value = "All";
+                self.widgets.subfolder.value = "All";
+                WidgetVisibility.toggle(self.node, self.widgets.subfolder, false);
+                self.widgets.modelName.options.values = favorites.length > 0 ? favorites : ["No models found"];
+                
+                const oldModel = self.widgets.modelName.value;
+                self.widgets.modelName.value = favorites[0] || "No models found";
+                if (oldModel !== self.widgets.modelName.value) {
+                    self.widgets.control.value = "fixed";
+                }
+                
                 app.graph.setDirtyCanvas(true);
-                if (original) return original.apply(this.widgets.modelType, arguments);
+                if (original) return original.apply(self.widgets.modelType, arguments);
                 return;
             }
             
-            const folders = await API.getFolders(this.widgets.modelType.value);
-            this.widgets.folder.options.values = folders;
-            this.widgets.folder.value = "All";
-
-            WidgetVisibility.toggle(this.node, this.widgets.subfolder, false);
+            const folders = await API.getFolders(self.widgets.modelType.value);
+            self.widgets.folder.options.values = folders;
+            self.widgets.folder.value = "All";
+            WidgetVisibility.toggle(self.node, self.widgets.subfolder, false);
             
-            const models = await API.getModels(this.widgets.modelType.value, "All", "All");
-            this.widgets.modelName.options.values = models;
-            this.widgets.modelName.value = models[0] || "No models found";
+            const models = await API.getModels(self.widgets.modelType.value, "All", "All");
+            self.widgets.modelName.options.values = models;
+            
+            const oldModel = self.widgets.modelName.value;
+            self.widgets.modelName.value = models[0] || "No models found";
+            if (oldModel !== self.widgets.modelName.value) {
+                self.widgets.control.value = "fixed";
+            }
             
             app.graph.setDirtyCanvas(true);
-            if (original) return original.apply(this.widgets.modelType, arguments);
+            if (original) return original.apply(self.widgets.modelType, arguments);
         };
     }
 }
@@ -89,62 +101,80 @@ class FolderHandler {
     
     setup() {
         const original = this.widgets.folder.callback;
-        this.widgets.folder.callback = async () => {
-            const subfolders = await API.getSubfolders(this.widgets.modelType.value, this.widgets.folder.value);
+        const self = this;
+        
+        this.widgets.folder.callback = async function() {
+            const subfolders = await API.getSubfolders(self.widgets.modelType.value, self.widgets.folder.value);
             
-            if (this.widgets.folder.value === "All" || subfolders.length === 1) {
-                WidgetVisibility.toggle(this.node, this.widgets.subfolder, false);
-                this.widgets.subfolder.value = "All";
+            if (self.widgets.folder.value === "All" || subfolders.length === 1) {
+                WidgetVisibility.toggle(self.node, self.widgets.subfolder, false);
+                self.widgets.subfolder.value = "All";
             } else {
-                this.widgets.subfolder.options.values = subfolders;
-                this.widgets.subfolder.value = "All";
-                WidgetVisibility.toggle(this.node, this.widgets.subfolder, true);
+                self.widgets.subfolder.options.values = subfolders;
+                self.widgets.subfolder.value = "All";
+                WidgetVisibility.toggle(self.node, self.widgets.subfolder, true);
             }
             
-            const models = await API.getModels(this.widgets.modelType.value, this.widgets.folder.value, "All");
-            this.widgets.modelName.options.values = models;
-            this.widgets.modelName.value = models[0] || "No models found";
+            const models = await API.getModels(self.widgets.modelType.value, self.widgets.folder.value, "All");
+            self.widgets.modelName.options.values = models;
+            
+            const oldModel = self.widgets.modelName.value;
+            self.widgets.modelName.value = models[0] || "No models found";
+            if (oldModel !== self.widgets.modelName.value) {
+                self.widgets.control.value = "fixed";
+            }
             
             app.graph.setDirtyCanvas(true);
-            if (original) return original.apply(this.widgets.folder, arguments);
+            if (original) return original.apply(self.widgets.folder, arguments);
         };
     }
 }
 
 // Handles subfolder widget changes
 class SubfolderHandler {
-    constructor(widgets) {
+    constructor(node, widgets) {
+        this.node = node;
         this.widgets = widgets;
     }
     
     setup() {
         const original = this.widgets.subfolder.callback;
-        this.widgets.subfolder.callback = async () => {
+        const self = this;
+        
+        this.widgets.subfolder.callback = async function() {
             const models = await API.getModels(
-                this.widgets.modelType.value,
-                this.widgets.folder.value,
-                this.widgets.subfolder.value
+                self.widgets.modelType.value,
+                self.widgets.folder.value,
+                self.widgets.subfolder.value
             );
-            this.widgets.modelName.options.values = models;
-            this.widgets.modelName.value = models[0] || "No models found";
+            self.widgets.modelName.options.values = models;
+            
+            const oldModel = self.widgets.modelName.value;
+            self.widgets.modelName.value = models[0] || "No models found";
+            if (oldModel !== self.widgets.modelName.value) {
+                self.widgets.control.value = "fixed";
+            }
             
             app.graph.setDirtyCanvas(true);
-            if (original) return original.apply(this.widgets.subfolder, arguments);
+            if (original) return original.apply(self.widgets.subfolder, arguments);
         };
     }
 }
 
 // Handles model_name widget changes (sets control to "fixed")
 class ModelNameHandler {
-    constructor(widgets) {
+    constructor(node, widgets) {
+        this.node = node;
         this.widgets = widgets;
     }
     
     setup() {
         const original = this.widgets.modelName.callback;
-        this.widgets.modelName.callback = () => {
-            this.widgets.control.value = "fixed";
-            if (original) return original.apply(this.widgets.modelName, arguments);
+        const self = this;
+        
+        this.widgets.modelName.callback = function() {
+            self.widgets.control.value = "fixed";
+            if (original) return original.apply(this, arguments);
         };
     }
 }
@@ -159,8 +189,8 @@ class CallbackManager {
     setupAll() {
         new ModelTypeHandler(this.node, this.widgets).setup();
         new FolderHandler(this.node, this.widgets).setup();
-        new SubfolderHandler(this.widgets).setup();
-        new ModelNameHandler(this.widgets).setup();
+        new SubfolderHandler(this.node, this.widgets).setup();
+        new ModelNameHandler(this.node, this.widgets).setup();
     }
 }
 
@@ -264,12 +294,17 @@ app.registerExtension({
                                 });
                                 const result = await response.json();
                                 if (result.success) {
-                                    // console.log("Removed from favorites:", modelWidget.value);
-                                    // Upd list after del
                                     const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
                                     if (modelTypeWidget && modelTypeWidget.value === "Favorites") {
                                         modelWidget.options.values = result.favorites.length > 0 ? result.favorites : ["No models found"];
+                                        
+                                        const oldModel = modelWidget.value;
                                         modelWidget.value = result.favorites[0] || "No models found";
+                                        if (oldModel !== modelWidget.value) {
+                                            const controlWidget = this.widgets.find(w => w.name === "after_generate");
+                                            if (controlWidget) controlWidget.value = "fixed";
+                                        }
+                                        
                                         app.graph.setDirtyCanvas(true);
                                     }
                                 }

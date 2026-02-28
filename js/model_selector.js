@@ -19,33 +19,32 @@ function toggleWidget(node, widget, show = false) {
 
 async function updateModelList(node, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget) {
     const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
-
+    const currentValue = modelNameWidget.value;
     let finalModels = [...models];
-
+    let newValue = currentValue;
     if (afterGenerateWidget.value === "increment") {
         finalModels = ["(Start)", ...models];
+        if (currentValue !== "(Start)" && !models.includes(currentValue)) {
+            newValue = "(Start)";
+        }
     } else if (afterGenerateWidget.value === "decrement") {
         finalModels = [...models, "(End)"];
-    }
-
-    modelNameWidget.options.values = finalModels;
-
-    const currentValue = modelNameWidget.value;
-
-    if (currentValue === "(Start)" && afterGenerateWidget.value !== "increment") {
-        modelNameWidget.value = models[0] || "No models found";
-    } else if (currentValue === "(End)" && afterGenerateWidget.value !== "decrement") {
-        modelNameWidget.value = models[0] || "No models found";
-    } else if (!finalModels.includes(currentValue)) {
-        if (afterGenerateWidget.value === "increment") {
-            modelNameWidget.value = "(Start)";
-        } else if (afterGenerateWidget.value === "decrement") {
-            modelNameWidget.value = "(End)";
-        } else {
-            modelNameWidget.value = finalModels[0] || "No models found";
+        if (currentValue !== "(End)" && !models.includes(currentValue)) {
+            newValue = "(End)";
+        }
+    } else {
+        // fixed or randomize - NO markers
+        finalModels = [...models];
+        if (currentValue === "(Start)" || currentValue === "(End)") {
+            newValue = models[0] || "No models found";
+        } else if (!models.includes(currentValue)) {
+            newValue = models[0] || "No models found";
         }
     }
-
+    // Update list
+    modelNameWidget.options.values = finalModels;
+    // Then update value
+    modelNameWidget.value = newValue;
     app.graph.setDirtyCanvas(true);
 }
 
@@ -197,7 +196,11 @@ app.registerExtension({
 
                         if (selectedValue !== "(Start)" && selectedValue !== "(End)") {
                             afterGenerateWidget.value = "fixed";
-                            await updateModelList(node, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget);
+                            const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
+                            modelNameWidget.options.values = [...models];
+                            modelNameWidget.value = selectedValue;
+                            
+                            app.graph.setDirtyCanvas(true);
                         }
 
                         if (originalCallback) return originalCallback.apply(this, arguments);

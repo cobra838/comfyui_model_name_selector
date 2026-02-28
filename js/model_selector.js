@@ -30,7 +30,13 @@ async function updateModelList(node, modelTypeWidget, folderWidget, subfolderWid
 
     modelNameWidget.options.values = finalModels;
 
-    if (!finalModels.includes(modelNameWidget.value)) {
+    const currentValue = modelNameWidget.value;
+
+    if (currentValue === "(Start)" && afterGenerateWidget.value !== "increment") {
+        modelNameWidget.value = models[0] || "No models found";
+    } else if (currentValue === "(End)" && afterGenerateWidget.value !== "decrement") {
+        modelNameWidget.value = models[0] || "No models found";
+    } else if (!finalModels.includes(currentValue)) {
         if (afterGenerateWidget.value === "increment") {
             modelNameWidget.value = "(Start)";
         } else if (afterGenerateWidget.value === "decrement") {
@@ -186,8 +192,14 @@ app.registerExtension({
 
                 if (modelNameWidget && afterGenerateWidget) {
                     const originalCallback = modelNameWidget.callback;
-                    modelNameWidget.callback = function() {
-                        afterGenerateWidget.value = "fixed";
+                    modelNameWidget.callback = async function() {
+                        const selectedValue = modelNameWidget.value;
+
+                        if (selectedValue !== "(Start)" && selectedValue !== "(End)") {
+                            afterGenerateWidget.value = "fixed";
+                            await updateModelList(node, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget);
+                        }
+
                         if (originalCallback) return originalCallback.apply(this, arguments);
                     };
                 }

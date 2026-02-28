@@ -64,12 +64,16 @@ class ModelNameSelector:
 
     @classmethod
     def INPUT_TYPES(s):
+        all_folders = s.get_folders("All")
+        all_models = s.get_models("All", "All", "All")
+        models_with_markers = ["(Start)"] + all_models + ["(End)"]
+
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
-                "folder": (s.get_folders("All"),),
+                "folder": (all_folders,),
                 "subfolder": (["All"],),
-                "model_name": (s.get_models("All", "All", "All"),),
+                "model_name": (models_with_markers,),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),
             },
             "hidden": {

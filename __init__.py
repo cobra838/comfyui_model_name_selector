@@ -61,15 +61,45 @@ class ModelNameSelector:
     
     @classmethod
     def INPUT_TYPES(s):
+        all_models = []
+        all_models += folder_paths.get_filename_list("checkpoints")
+        all_models += folder_paths.get_filename_list("diffusion_models")
+        all_models += folder_paths.get_filename_list("unet_gguf")
+        
+        all_folders = s._extract_folders(all_models)
+        all_subfolders = s._extract_all_subfolders(all_models)
+        
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
-                "folder": (s.get_folders("All"),),
-                "subfolder": (["All"],),
-                "model_name": (s.get_models("All", "All", "All"),),
+                "folder": (all_folders,),
+                "subfolder": (all_subfolders,),
+                "model_name": (sorted(all_models) if all_models else ["No models found"],),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),
             }
         }
+    
+    @classmethod
+    def _extract_folders(s, models):
+        folders = set(["All"])
+        for model in models:
+            if '\\' in model or '/' in model:
+                folder = model.split('\\')[0] if '\\' in model else model.split('/')[0]
+                folders.add(folder)
+            else:
+                folders.add("(Root)")
+        return sorted(folders, key=lambda x: (x != "All", x == "(Root)", x))
+    
+    @classmethod
+    def _extract_all_subfolders(s, models):
+        subfolders = set(["All"])
+        for model in models:
+            if '\\' in model or '/' in model:
+                sep = '\\' if '\\' in model else '/'
+                parts = model.split(sep)
+                if len(parts) > 2:
+                    subfolders.add(parts[1])
+        return sorted(subfolders, key=lambda x: (x != "All", x.lower()))
     
     @classmethod
     def get_folders(s, model_type):
@@ -160,7 +190,9 @@ class ModelNameSelector:
     @classmethod
     def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate):
         models = s.get_models(model_type, folder, subfolder)
-        return hash(tuple(models))
+        folders = s.get_folders(model_type)
+        subfolders = s.get_subfolders(model_type, folder)
+        return hash((tuple(models), tuple(folders), tuple(subfolders)))
     
     def get_name(self, model_type, folder, subfolder, model_name, after_generate):
         models = self.get_models(model_type, folder, subfolder)
@@ -215,13 +247,11 @@ async def get_models_by_type(request):
 
 @server.PromptServer.instance.routes.get("/model_selector/favorites")
 async def get_favorites_endpoint(request):
-    """Get list of favorite models."""
     favorites = FavoritesManager.load_favorites()
     return web.json_response(favorites)
 
 @server.PromptServer.instance.routes.post("/model_selector/favorites/add")
 async def add_favorite_endpoint(request):
-    """Add model to favorites."""
     data = await request.json()
     model = data.get("model")
     if model:
@@ -231,7 +261,6 @@ async def add_favorite_endpoint(request):
 
 @server.PromptServer.instance.routes.post("/model_selector/favorites/remove")
 async def remove_favorite_endpoint(request):
-    """Remove model from favorites."""
     data = await request.json()
     model = data.get("model")
     if model:
@@ -241,7 +270,6 @@ async def remove_favorite_endpoint(request):
 
 @server.PromptServer.instance.routes.get("/model_selector/favorites/check")
 async def check_favorite_endpoint(request):
-    """Check if model is in favorites."""
     model = request.rel_url.query.get("model", "")
     is_fav = FavoritesManager.is_favorite(model)
     return web.json_response({"is_favorite": is_fav})

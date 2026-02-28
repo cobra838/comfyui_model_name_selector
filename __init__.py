@@ -191,10 +191,10 @@ class ModelNameSelector:
             return {"ui": {"model_name": [selected]}, "result": (selected,)}
 
         # Check if we have a last used model for this node
-        if unique_id and unique_id in self._last_models:
-            last_model = self._last_models[unique_id]
-            if last_model in models:
-                model_name = last_model
+        # if unique_id and unique_id in self._last_models:
+            # last_model = self._last_models[unique_id]
+            # if last_model in models:
+                # model_name = last_model
 
         if model_name not in models:
             model_name = models[0]

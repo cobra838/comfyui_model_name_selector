@@ -59,47 +59,23 @@ class FavoritesManager:
 
 class ModelNameSelector:
     
+    # Global state to track last used model per node
+    _last_models = {}
+    
     @classmethod
     def INPUT_TYPES(s):
-        all_models = []
-        all_models += folder_paths.get_filename_list("checkpoints")
-        all_models += folder_paths.get_filename_list("diffusion_models")
-        all_models += folder_paths.get_filename_list("unet_gguf")
-        
-        all_folders = s._extract_folders(all_models)
-        all_subfolders = s._extract_all_subfolders(all_models)
-        
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
-                "folder": (all_folders,),
-                "subfolder": (all_subfolders,),
-                "model_name": (sorted(all_models) if all_models else ["No models found"],),
+                "folder": (s.get_folders("All"),),
+                "subfolder": (["All"],),
+                "model_name": (s.get_models("All", "All", "All"),),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID"
             }
         }
-    
-    @classmethod
-    def _extract_folders(s, models):
-        folders = set(["All"])
-        for model in models:
-            if '\\' in model or '/' in model:
-                folder = model.split('\\')[0] if '\\' in model else model.split('/')[0]
-                folders.add(folder)
-            else:
-                folders.add("(Root)")
-        return sorted(folders, key=lambda x: (x != "All", x == "(Root)", x))
-    
-    @classmethod
-    def _extract_all_subfolders(s, models):
-        subfolders = set(["All"])
-        for model in models:
-            if '\\' in model or '/' in model:
-                sep = '\\' if '\\' in model else '/'
-                parts = model.split(sep)
-                if len(parts) > 2:
-                    subfolders.add(parts[1])
-        return sorted(subfolders, key=lambda x: (x != "All", x.lower()))
     
     @classmethod
     def get_folders(s, model_type):
@@ -190,15 +166,19 @@ class ModelNameSelector:
     @classmethod
     def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate):
         models = s.get_models(model_type, folder, subfolder)
-        folders = s.get_folders(model_type)
-        subfolders = s.get_subfolders(model_type, folder)
-        return hash((tuple(models), tuple(folders), tuple(subfolders)))
+        return hash(tuple(models))
     
-    def get_name(self, model_type, folder, subfolder, model_name, after_generate):
+    def get_name(self, model_type, folder, subfolder, model_name, after_generate, unique_id=None):
         models = self.get_models(model_type, folder, subfolder)
         
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
+        
+        # Check if we have a last used model for this node
+        if unique_id and unique_id in self._last_models:
+            last_model = self._last_models[unique_id]
+            if last_model in models:
+                model_name = last_model
         
         if model_name not in models:
             model_name = models[0]
@@ -212,11 +192,13 @@ class ModelNameSelector:
                 if idx < len(models) - 1:
                     selected = models[idx + 1]
                 else:
+                    # selected = models[0]  # Loop back to start
                     raise ValueError(f"Reached end of model list (last model: {model_name})")
             elif after_generate == "decrement":
                 if idx > 0:
                     selected = models[idx - 1]
                 else:
+                    # selected = models[-1]  # Loop to end
                     raise ValueError(f"Reached start of model list (first model: {model_name})")
             elif after_generate == "randomize":
                 if len(models) > 1:
@@ -224,6 +206,10 @@ class ModelNameSelector:
                     selected = random.choice(other_models)
                 else:
                     selected = models[0]
+        
+        # Store the selected model for next execution
+        if unique_id:
+            self._last_models[unique_id] = selected
         
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
 

@@ -59,7 +59,6 @@ class FavoritesManager:
 
 class ModelNameSelector:
     
-    # Global state to track last used model per node
     _last_models = {}
     
     @classmethod
@@ -155,7 +154,11 @@ class ModelNameSelector:
             prefix = folder + sep + subfolder + sep
             models = [m for m in models if m.startswith(prefix)]
         
-        return sorted(models) if models else ["No models found"]
+        if not models:
+            return ["No models found"]
+        
+        sorted_models = sorted(models)
+        return ["(Start)"] + sorted_models + ["(End)"]
     
     RETURN_TYPES = ("*",)
     RETURN_NAMES = ("model_name",)
@@ -174,40 +177,52 @@ class ModelNameSelector:
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
         
+        # Filter out Start/End markers to get real models
+        real_models = [m for m in models if m not in ["(Start)", "(End)"]]
+        
+        # Handle start/end markers
+        if model_name == "(Start)":
+            selected = real_models[0] if real_models else "No models found"
+            if unique_id:
+                self._last_models[unique_id] = selected
+            return {"ui": {"model_name": [selected]}, "result": (selected,)}
+        elif model_name == "(End)":
+            selected = real_models[-1] if real_models else "No models found"
+            if unique_id:
+                self._last_models[unique_id] = selected
+            return {"ui": {"model_name": [selected]}, "result": (selected,)}
+        
         # Check if we have a last used model for this node
         if unique_id and unique_id in self._last_models:
             last_model = self._last_models[unique_id]
-            if last_model in models:
+            if last_model in real_models:
                 model_name = last_model
         
-        if model_name not in models:
-            model_name = models[0]
+        if model_name not in real_models:
+            model_name = real_models[0] if real_models else "No models found"
         
         selected = model_name
         
         if after_generate != "fixed":
-            idx = models.index(model_name)
+            idx = real_models.index(model_name)
             
             if after_generate == "increment":
-                if idx < len(models) - 1:
-                    selected = models[idx + 1]
+                if idx < len(real_models) - 1:
+                    selected = real_models[idx + 1]
                 else:
-                    # selected = models[0]  # Loop back to start
                     raise ValueError(f"Reached end of model list (last model: {model_name})")
             elif after_generate == "decrement":
                 if idx > 0:
-                    selected = models[idx - 1]
+                    selected = real_models[idx - 1]
                 else:
-                    # selected = models[-1]  # Loop to end
                     raise ValueError(f"Reached start of model list (first model: {model_name})")
             elif after_generate == "randomize":
-                if len(models) > 1:
-                    other_models = [m for m in models if m != model_name]
+                if len(real_models) > 1:
+                    other_models = [m for m in real_models if m != model_name]
                     selected = random.choice(other_models)
                 else:
-                    selected = models[0]
+                    selected = real_models[0]
         
-        # Store the selected model for next execution
         if unique_id:
             self._last_models[unique_id] = selected
         

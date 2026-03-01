@@ -184,7 +184,23 @@ app.registerExtension({
                     const originalAfterGenerateCallback = afterGenerateWidget.callback;
                     afterGenerateWidget.callback = async function() {
                         await updateModelList(node, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget);
-
+                        if (afterGenerateWidget.value !== "fixed") {
+                            const currentModel = modelNameWidget.value;
+                            if (currentModel !== "(Start)" && currentModel !== "(End)") {
+                                try {
+                                    await fetch("/model_selector/reset_position", {
+                                        method: "POST",
+                                        headers: {"Content-Type": "application/json"},
+                                        body: JSON.stringify({
+                                            unique_id: node.id.toString(),
+                                            model: currentModel
+                                        })
+                                    });
+                                } catch (err) {
+                                    console.error("Failed to reset position on mode change:", err);
+                                }
+                            }
+                        }
                         if (originalAfterGenerateCallback) return originalAfterGenerateCallback.apply(this, arguments);
                     };
                 }
@@ -199,10 +215,20 @@ app.registerExtension({
                             const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
                             modelNameWidget.options.values = [...models];
                             modelNameWidget.value = selectedValue;
-                            
+                            try {
+                                await fetch("/model_selector/reset_position", {
+                                    method: "POST",
+                                    headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({
+                                        unique_id: node.id.toString(),
+                                        model: selectedValue
+                                    })
+                                });
+                            } catch (err) {
+                                console.error("Failed to reset position:", err);
+                            }
                             app.graph.setDirtyCanvas(true);
                         }
-
                         if (originalCallback) return originalCallback.apply(this, arguments);
                     };
                 }

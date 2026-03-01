@@ -168,8 +168,12 @@ class ModelNameSelector:
     OUTPUT_NODE = True
 
     @classmethod
-    def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate):
+    def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate, **kwargs):
         models = s.get_models(model_type, folder, subfolder)
+
+        if after_generate != "fixed":
+            return random.random()
+
         return hash(tuple(models))
 
     def get_name(self, model_type, folder, subfolder, model_name, after_generate, unique_id=None):
@@ -199,10 +203,11 @@ class ModelNameSelector:
 
         if unique_id and unique_id in self._last_models:
             current = self._last_models[unique_id]
-            if current not in models:
-                current = models[0]
         else:
             current = model_name if model_name in models else models[0]
+
+        if current not in models:
+            current = models[0]
 
         idx = models.index(current)
 
@@ -223,10 +228,12 @@ class ModelNameSelector:
             else:
                 selected = models[0]
 
+        # Store the selected model for next execution
         if unique_id:
             self._last_models[unique_id] = selected
 
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
+
 @server.PromptServer.instance.routes.get("/model_selector/folders")
 async def get_folders_by_type(request):
     model_type = request.rel_url.query.get("type", "All")
@@ -273,6 +280,16 @@ async def check_favorite_endpoint(request):
     model = request.rel_url.query.get("model", "")
     is_fav = FavoritesManager.is_favorite(model)
     return web.json_response({"is_favorite": is_fav})
+
+@server.PromptServer.instance.routes.post("/model_selector/reset_position")
+async def reset_position_endpoint(request):
+    data = await request.json()
+    unique_id = data.get("unique_id")
+    model = data.get("model")
+    if unique_id and model:
+        ModelNameSelector._last_models[str(unique_id)] = model
+        return web.json_response({"success": True})
+    return web.json_response({"success": False}, status=400)
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

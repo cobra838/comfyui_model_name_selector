@@ -190,45 +190,43 @@ class ModelNameSelector:
                 self._last_models[unique_id] = selected
             return {"ui": {"model_name": [selected]}, "result": (selected,)}
 
-        # Check if we have a last used model for this node
-        if after_generate != "fixed" and unique_id and unique_id in self._last_models:
-            last_model = self._last_models[unique_id]
-            if last_model in models:
-                model_name = last_model
+        if after_generate == "fixed":
+            if model_name not in models:
+                model_name = models[0]
+            if unique_id:
+                self._last_models[unique_id] = model_name
+            return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
 
-        if model_name not in models:
-            model_name = models[0]
+        if unique_id and unique_id in self._last_models:
+            current = self._last_models[unique_id]
+            if current not in models:
+                current = models[0]
+        else:
+            current = model_name if model_name in models else models[0]
 
-        selected = model_name
+        idx = models.index(current)
 
-        if after_generate != "fixed":
-            idx = models.index(model_name)
+        if after_generate == "increment":
+            if idx < len(models) - 1:
+                selected = models[idx + 1]
+            else:
+                raise ValueError(f"Reached end of model list (last model: {current})")
+        elif after_generate == "decrement":
+            if idx > 0:
+                selected = models[idx - 1]
+            else:
+                raise ValueError(f"Reached start of model list (first model: {current})")
+        elif after_generate == "randomize":
+            if len(models) > 1:
+                other_models = [m for m in models if m != current]
+                selected = random.choice(other_models)
+            else:
+                selected = models[0]
 
-            if after_generate == "increment":
-                if idx < len(models) - 1:
-                    selected = models[idx + 1]
-                else:
-                    # selected = models[0]  # Loop back to start
-                    raise ValueError(f"Reached end of model list (last model: {model_name})")
-            elif after_generate == "decrement":
-                if idx > 0:
-                    selected = models[idx - 1]
-                else:
-                    # selected = models[-1]  # Loop to end
-                    raise ValueError(f"Reached start of model list (first model: {model_name})")
-            elif after_generate == "randomize":
-                if len(models) > 1:
-                    other_models = [m for m in models if m != model_name]
-                    selected = random.choice(other_models)
-                else:
-                    selected = models[0]
-
-        # Store the selected model for next execution
         if unique_id:
             self._last_models[unique_id] = selected
 
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
-
 @server.PromptServer.instance.routes.get("/model_selector/folders")
 async def get_folders_by_type(request):
     model_type = request.rel_url.query.get("type", "All")

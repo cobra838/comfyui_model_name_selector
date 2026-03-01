@@ -67,12 +67,18 @@ class ModelNameSelector:
         all_folders = s.get_folders("All")
         all_models = s.get_models("All", "All", "All")
         models_with_markers = ["(Start)"] + all_models + ["(End)"]
+        all_subfolders = set(["All"])
+        for model_type in ["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"]:
+            folders = s.get_folders(model_type)
+            for folder in folders:
+                subfolders = s.get_subfolders(model_type, folder)
+                all_subfolders.update(subfolders)
 
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
                 "folder": (all_folders,),
-                "subfolder": (["All"],),
+                "subfolder": (sorted(all_subfolders),),
                 "model_name": (models_with_markers,),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),
             },

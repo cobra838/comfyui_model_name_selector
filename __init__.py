@@ -132,7 +132,8 @@ class ModelNameSelector:
         subfolders = set(["All"])
         for model in models:
             if model.startswith(folder + '\\') or model.startswith(folder + '/'):
-                parts = model.replace(folder + '\\', '').replace(folder + '/', '').split('\\' if '\\' in model else '/')
+                remainder = model[len(folder) + 1:]
+                parts = remainder.split('\\' if '\\' in remainder else '/')
                 if len(parts) > 1:
                     subfolders.add(parts[0])
 
@@ -160,10 +161,8 @@ class ModelNameSelector:
         if subfolder != "All" and folder != "All" and folder != "(Root)":
             if models:
                 sep = '\\' if '\\' in models[0] else '/'
-            else:
-                sep = '\\'
-            prefix = folder + sep + subfolder + sep
-            models = [m for m in models if m.startswith(prefix)]
+                prefix = folder + sep + subfolder + sep
+                models = [m for m in models if m.startswith(prefix)]
 
         return sorted(models) if models else ["No models found"]
 

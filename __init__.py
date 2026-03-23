@@ -85,7 +85,7 @@ class ModelNameSelector:
                 models += folder_paths.get_filename_list("checkpoints")
             if model_type in ["All", "Diffusion Models"]:
                 models += folder_paths.get_filename_list("diffusion_models")
-            if model_type in ["All", "GGUF"]:
+            if model_type in ["All", "GGUF"] and "unet_gguf" in folder_paths.folder_names_and_paths:
                 models += folder_paths.get_filename_list("unet_gguf")
 
         folders = set(["All"])
@@ -111,7 +111,7 @@ class ModelNameSelector:
                 models += folder_paths.get_filename_list("checkpoints")
             if model_type in ["All", "Diffusion Models"]:
                 models += folder_paths.get_filename_list("diffusion_models")
-            if model_type in ["All", "GGUF"]:
+            if model_type in ["All", "GGUF"] and "unet_gguf" in folder_paths.folder_names_and_paths:
                 models += folder_paths.get_filename_list("unet_gguf")
 
         if folder == "(Root)":
@@ -137,7 +137,7 @@ class ModelNameSelector:
                 models += folder_paths.get_filename_list("checkpoints")
             if model_type in ["All", "Diffusion Models"]:
                 models += folder_paths.get_filename_list("diffusion_models")
-            if model_type in ["All", "GGUF"]:
+            if model_type in ["All", "GGUF"] and "unet_gguf" in folder_paths.folder_names_and_paths:
                 models += folder_paths.get_filename_list("unet_gguf")
 
         if folder != "All":

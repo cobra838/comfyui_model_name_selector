@@ -270,6 +270,22 @@ app.registerExtension({
                 }
             };
 
+            nodeType.prototype.refreshComboInNode = async function(defs) {
+                const modelTypeWidget = this.widgets.find(w => w.name === "model_type");
+                const folderWidget = this.widgets.find(w => w.name === "folder");
+                const subfolderWidget = this.widgets.find(w => w.name === "subfolder");
+                const modelNameWidget = this.widgets.find(w => w.name === "model_name");
+                const afterGenerateWidget = this.widgets.find(w => w.name === "after_generate");
+
+                if (modelTypeWidget && folderWidget && subfolderWidget && modelNameWidget && afterGenerateWidget) {
+                    const savedModel = modelNameWidget.value;
+                    await updateModelList(this, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget);
+                    if (modelNameWidget.options.values.includes(savedModel)) {
+                        modelNameWidget.value = savedModel;
+                    }
+                }
+            };
+
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = async function() {
                 if (onConfigure) onConfigure.apply(this, arguments);

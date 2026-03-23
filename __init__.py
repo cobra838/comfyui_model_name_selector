@@ -16,11 +16,9 @@ class FavoritesManager:
 
     @classmethod
     def load_favorites(cls):
-        """Load favorites from file."""
         os.makedirs(os.path.dirname(cls.FAVORITES_FILE), exist_ok=True)
         if not os.path.exists(cls.FAVORITES_FILE):
             return []
-
         try:
             with open(cls.FAVORITES_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -29,13 +27,11 @@ class FavoritesManager:
 
     @classmethod
     def save_favorites(cls, favorites):
-        """Save favorites to file."""
         with open(cls.FAVORITES_FILE, 'w', encoding='utf-8') as f:
             json.dump(favorites, f, indent=2, ensure_ascii=False)
 
     @classmethod
     def add_favorite(cls, model):
-        """Add model to favorites."""
         favorites = cls.load_favorites()
         if model not in favorites:
             favorites.append(model)
@@ -44,7 +40,6 @@ class FavoritesManager:
 
     @classmethod
     def remove_favorite(cls, model):
-        """Remove model from favorites."""
         favorites = cls.load_favorites()
         if model in favorites:
             favorites.remove(model)
@@ -53,7 +48,6 @@ class FavoritesManager:
 
     @classmethod
     def is_favorite(cls, model):
-        """Check if model is in favorites."""
         return model in cls.load_favorites()
 
 
@@ -63,20 +57,17 @@ class ModelNameSelector:
     def INPUT_TYPES(s):
         all_folders = s.get_folders("All")
         all_models = s.get_models("All", "All", "All")
-        models_with_markers = ["(Start)"] + all_models + ["(End)"]
         all_subfolders = set(["All"])
         for model_type in ["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"]:
-            folders = s.get_folders(model_type)
-            for folder in folders:
-                subfolders = s.get_subfolders(model_type, folder)
-                all_subfolders.update(subfolders)
+            for folder in s.get_folders(model_type):
+                all_subfolders.update(s.get_subfolders(model_type, folder))
 
         return {
             "required": {
                 "model_type": (["All", "Checkpoints", "Diffusion Models", "GGUF", "Favorites"],),
                 "folder": (all_folders,),
                 "subfolder": (sorted(all_subfolders),),
-                "model_name": (models_with_markers,),
+                "model_name": (all_models,),
                 "after_generate": (["fixed", "increment", "decrement", "randomize"],),
             },
             "hidden": {
@@ -171,9 +162,6 @@ class ModelNameSelector:
 
     @classmethod
     def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate, **kwargs):
-        # JS now handles all value changes before serialization,
-        # so model_name will already be different for each queued generation.
-        # We only need random() for randomize as an extra safety measure.
         if after_generate == "randomize":
             return random.random()
         return hash(model_name)
@@ -184,19 +172,9 @@ class ModelNameSelector:
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
 
-        # JS (afterQueued) has already computed the correct model_name before
-        # this prompt was serialized. We just need to handle the edge cases
-        # where markers slip through (e.g. first execution with increment mode).
-        if model_name == "(Start)":
-            selected = models[0]
-        elif model_name == "(End)":
-            selected = models[-1]
-        elif model_name not in models:
-            selected = models[0]
-        else:
-            selected = model_name
-
+        selected = model_name if model_name in models else models[0]
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
+
 
 @server.PromptServer.instance.routes.get("/model_selector/folders")
 async def get_folders_by_type(request):
@@ -218,8 +196,7 @@ async def get_models_by_type(request):
 
 @server.PromptServer.instance.routes.get("/model_selector/favorites")
 async def get_favorites_endpoint(request):
-    favorites = FavoritesManager.load_favorites()
-    return web.json_response(favorites)
+    return web.json_response(FavoritesManager.load_favorites())
 
 @server.PromptServer.instance.routes.post("/model_selector/favorites/add")
 async def add_favorite_endpoint(request):
@@ -242,8 +219,7 @@ async def remove_favorite_endpoint(request):
 @server.PromptServer.instance.routes.get("/model_selector/favorites/check")
 async def check_favorite_endpoint(request):
     model = request.rel_url.query.get("model", "")
-    is_fav = FavoritesManager.is_favorite(model)
-    return web.json_response({"is_favorite": is_fav})
+    return web.json_response({"is_favorite": FavoritesManager.is_favorite(model)})
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

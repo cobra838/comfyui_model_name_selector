@@ -2,9 +2,6 @@
 name = "comfyui-model-name-selector"
 version = "1.0.0"
 description = "Enhanced model selection node for ComfyUI with type/folder filtering and auto-control features"
-authors = [
-    {name = "Your Name"}
-]
 readme = "README.md"
 requires-python = ">=3.9"
 keywords = ["comfyui", "stable-diffusion", "model-selector"]

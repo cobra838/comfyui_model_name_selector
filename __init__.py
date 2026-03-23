@@ -154,6 +154,10 @@ class ModelNameSelector:
 
         return sorted(models) if models else ["No models found"]
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, **kwargs):
+        return True
+
     RETURN_TYPES = ("*",)
     RETURN_NAMES = ("model_name",)
     FUNCTION = "get_name"

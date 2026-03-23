@@ -59,9 +59,6 @@ class FavoritesManager:
 
 class ModelNameSelector:
 
-    # Global state to track last used model per node
-    _last_models = {}
-
     @classmethod
     def INPUT_TYPES(s):
         all_folders = s.get_folders("All")
@@ -174,12 +171,12 @@ class ModelNameSelector:
 
     @classmethod
     def IS_CHANGED(s, model_type, folder, subfolder, model_name, after_generate, **kwargs):
-        models = s.get_models(model_type, folder, subfolder)
-
-        if after_generate != "fixed":
+        # JS now handles all value changes before serialization,
+        # so model_name will already be different for each queued generation.
+        # We only need random() for randomize as an extra safety measure.
+        if after_generate == "randomize":
             return random.random()
-
-        return hash(tuple(models))
+        return hash(model_name)
 
     def get_name(self, model_type, folder, subfolder, model_name, after_generate, unique_id=None):
         models = self.get_models(model_type, folder, subfolder)
@@ -187,55 +184,17 @@ class ModelNameSelector:
         if models == ["No models found"]:
             return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
 
-        # Handle start/end markers
+        # JS (afterQueued) has already computed the correct model_name before
+        # this prompt was serialized. We just need to handle the edge cases
+        # where markers slip through (e.g. first execution with increment mode).
         if model_name == "(Start)":
             selected = models[0]
-            if unique_id:
-                self._last_models[unique_id] = selected
-            return {"ui": {"model_name": [selected]}, "result": (selected,)}
         elif model_name == "(End)":
             selected = models[-1]
-            if unique_id:
-                self._last_models[unique_id] = selected
-            return {"ui": {"model_name": [selected]}, "result": (selected,)}
-
-        if after_generate == "fixed":
-            if model_name not in models:
-                model_name = models[0]
-            if unique_id:
-                self._last_models[unique_id] = model_name
-            return {"ui": {"model_name": [model_name]}, "result": (model_name,)}
-
-        if unique_id and unique_id in self._last_models:
-            current = self._last_models[unique_id]
+        elif model_name not in models:
+            selected = models[0]
         else:
-            current = model_name if model_name in models else models[0]
-
-        if current not in models:
-            current = models[0]
-
-        idx = models.index(current)
-
-        if after_generate == "increment":
-            if idx < len(models) - 1:
-                selected = models[idx + 1]
-            else:
-                raise ValueError(f"Reached end of model list (last model: {current})")
-        elif after_generate == "decrement":
-            if idx > 0:
-                selected = models[idx - 1]
-            else:
-                raise ValueError(f"Reached start of model list (first model: {current})")
-        elif after_generate == "randomize":
-            if len(models) > 1:
-                other_models = [m for m in models if m != current]
-                selected = random.choice(other_models)
-            else:
-                selected = models[0]
-
-        # Store the selected model for next execution
-        if unique_id:
-            self._last_models[unique_id] = selected
+            selected = model_name
 
         return {"ui": {"model_name": [selected]}, "result": (selected,)}
 
@@ -285,16 +244,6 @@ async def check_favorite_endpoint(request):
     model = request.rel_url.query.get("model", "")
     is_fav = FavoritesManager.is_favorite(model)
     return web.json_response({"is_favorite": is_fav})
-
-@server.PromptServer.instance.routes.post("/model_selector/reset_position")
-async def reset_position_endpoint(request):
-    data = await request.json()
-    unique_id = data.get("unique_id")
-    model = data.get("model")
-    if unique_id and model:
-        ModelNameSelector._last_models[str(unique_id)] = model
-        return web.json_response({"success": True})
-    return web.json_response({"success": False}, status=400)
 
 NODE_CLASS_MAPPINGS = {"ModelNameSelector": ModelNameSelector}
 NODE_DISPLAY_NAME_MAPPINGS = {"ModelNameSelector": "Model Name Selector"}

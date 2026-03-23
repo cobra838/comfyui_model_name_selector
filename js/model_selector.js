@@ -33,7 +33,6 @@ async function updateModelList(node, modelTypeWidget, folderWidget, subfolderWid
             newValue = "(End)";
         }
     } else {
-        // fixed or randomize - NO markers
         finalModels = [...models];
         if (currentValue === "(Start)" || currentValue === "(End)") {
             newValue = models[0] || "No models found";
@@ -41,11 +40,60 @@ async function updateModelList(node, modelTypeWidget, folderWidget, subfolderWid
             newValue = models[0] || "No models found";
         }
     }
-    // Update list
     modelNameWidget.options.values = finalModels;
-    // Then update value
     modelNameWidget.value = newValue;
     app.graph.setDirtyCanvas(true);
+}
+
+// Core logic: pick next model based on mode.
+// Called from afterQueued — runs AFTER prompt is sent but BEFORE next serialization.
+function applyAfterGenerate(modelNameWidget, afterGenerateWidget) {
+    const mode = afterGenerateWidget.value;
+    if (mode === "fixed") return;
+
+    const allValues = modelNameWidget.options.values || [];
+    const models = allValues.filter(m => m !== "(Start)" && m !== "(End)" && m !== "No models found");
+    if (models.length === 0) return;
+
+    const current = modelNameWidget.value;
+
+    if (mode === "randomize") {
+        const others = models.filter(m => m !== current);
+        const pool = others.length > 0 ? others : models;
+        modelNameWidget.value = pool[Math.floor(Math.random() * pool.length)];
+        app.graph.setDirtyCanvas(true);
+        return;
+    }
+
+    if (mode === "increment") {
+        if (current === "(Start)") {
+            modelNameWidget.value = models[0];
+        } else {
+            const idx = models.indexOf(current);
+            if (idx === -1 || idx >= models.length - 1) {
+                console.warn(`ModelNameSelector: reached end of model list (last: ${current})`);
+                return;
+            }
+            modelNameWidget.value = models[idx + 1];
+        }
+        app.graph.setDirtyCanvas(true);
+        return;
+    }
+
+    if (mode === "decrement") {
+        if (current === "(End)") {
+            modelNameWidget.value = models[models.length - 1];
+        } else {
+            const idx = models.indexOf(current);
+            if (idx === -1 || idx <= 0) {
+                console.warn(`ModelNameSelector: reached start of model list (first: ${current})`);
+                return;
+            }
+            modelNameWidget.value = models[idx - 1];
+        }
+        app.graph.setDirtyCanvas(true);
+        return;
+    }
 }
 
 app.registerExtension({
@@ -56,14 +104,11 @@ app.registerExtension({
             const onExecuted = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function(message) {
                 if (onExecuted) onExecuted.apply(this, arguments);
-
-                if (message?.model_name) {
-                    const widget = this.widgets.find(w => w.name === "model_name");
-                    if (widget) {
-                        widget.value = message.model_name[0];
-                        app.graph.setDirtyCanvas(true);
-                    }
-                }
+                // Intentionally not updating widget.value here.
+                // onExecuted arrives via WebSocket asynchronously while JS may still
+                // be iterating the batch queue — this caused a race condition that
+                // reset the widget position and produced duplicate models.
+                // afterQueued now handles all position advances synchronously.
             };
 
             const getExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
@@ -131,6 +176,13 @@ app.registerExtension({
                 if (modelTypeWidget && folderWidget && subfolderWidget && modelNameWidget && afterGenerateWidget) {
                     const node = this;
 
+                    // KEY FIX: afterQueued runs after prompt is sent but before next serialization.
+                    // This matches how ComfyUI's native control_after_generate works,
+                    // so each queued generation in a batch gets the correct next model.
+                    modelNameWidget.afterQueued = () => {
+                        applyAfterGenerate(modelNameWidget, afterGenerateWidget);
+                    };
+
                     const originalTypeCallback = modelTypeWidget.callback;
                     modelTypeWidget.callback = async function() {
                         if (modelTypeWidget.value === "Favorites") {
@@ -184,23 +236,6 @@ app.registerExtension({
                     const originalAfterGenerateCallback = afterGenerateWidget.callback;
                     afterGenerateWidget.callback = async function() {
                         await updateModelList(node, modelTypeWidget, folderWidget, subfolderWidget, modelNameWidget, afterGenerateWidget);
-                        if (afterGenerateWidget.value !== "fixed") {
-                            const currentModel = modelNameWidget.value;
-                            if (currentModel !== "(Start)" && currentModel !== "(End)") {
-                                try {
-                                    await fetch("/model_selector/reset_position", {
-                                        method: "POST",
-                                        headers: {"Content-Type": "application/json"},
-                                        body: JSON.stringify({
-                                            unique_id: node.id.toString(),
-                                            model: currentModel
-                                        })
-                                    });
-                                } catch (err) {
-                                    console.error("Failed to reset position on mode change:", err);
-                                }
-                            }
-                        }
                         if (originalAfterGenerateCallback) return originalAfterGenerateCallback.apply(this, arguments);
                     };
                 }
@@ -215,18 +250,6 @@ app.registerExtension({
                             const models = await fetch(`/model_selector/models?type=${encodeURIComponent(modelTypeWidget.value)}&folder=${encodeURIComponent(folderWidget.value)}&subfolder=${encodeURIComponent(subfolderWidget.value)}`).then(r => r.json());
                             modelNameWidget.options.values = [...models];
                             modelNameWidget.value = selectedValue;
-                            try {
-                                await fetch("/model_selector/reset_position", {
-                                    method: "POST",
-                                    headers: {"Content-Type": "application/json"},
-                                    body: JSON.stringify({
-                                        unique_id: node.id.toString(),
-                                        model: selectedValue
-                                    })
-                                });
-                            } catch (err) {
-                                console.error("Failed to reset position:", err);
-                            }
                             app.graph.setDirtyCanvas(true);
                         }
                         if (originalCallback) return originalCallback.apply(this, arguments);
